@@ -1,0 +1,306 @@
+import React, { useState } from 'react';
+import { Copy, FileText, MessageSquare, Mail, Calendar, Clock, User, Building } from 'lucide-react';
+
+// Translations for the application, simplified for Meeting Notes only.
+const TRANSLATIONS = {
+  "en-US": {
+    "appTitle": "Professional Meeting Note Transformer",
+    "appDescription": "Transform raw meeting notes into polished, professional formats",
+    "meetingNotes": "Meeting Notes",
+    "input": "Input",
+    "context": "Context",
+    "meetingTitle": "Meeting Title",
+    "attendees": "Attendees",
+    "date": "Date",
+    "duration": "Duration",
+    "rawNotes": "Raw Notes",
+    "rawNotesPlaceholder": "Enter your raw meeting notes here...",
+    "outputFormat": "Output Format",
+    "slackUpdate": "Slack Update",
+    "emailSummary": "Email Summary",
+    "googleDoc": "Google Doc",
+    "transforming": "Transforming...",
+    "transformNotes": "Transform Notes",
+    "output": "Output",
+    "copy": "Copy",
+    "transformedNotesPlaceholder": "Transformed notes will appear here"
+  },
+  "es-ES": {
+    "appTitle": "Transformador Profesional de Notas de Reunión",
+    "appDescription": "Transforma notas de reunión sin procesar en formatos profesionales pulidos",
+    "meetingNotes": "Notas de Reunión",
+    "input": "Entrada",
+    "context": "Contexto",
+    "meetingTitle": "Título de la Reunión",
+    "attendees": "Asistentes",
+    "date": "Fecha",
+    "duration": "Duración",
+    "rawNotes": "Notas Sin Procesar",
+    "rawNotesPlaceholder": "Ingresa tus notas de reunión sin procesar aquí...",
+    "outputFormat": "Formato de Salida",
+    "slackUpdate": "Actualización de Slack",
+    "emailSummary": "Resumen de Email",
+    "googleDoc": "Documento de Google",
+    "transforming": "Transformando...",
+    "transformNotes": "Transformar Notas",
+    "output": "Salida",
+    "copy": "Copiar",
+    "transformedNotesPlaceholder": "Las notas transformadas aparecerán aquí"
+  }
+};
+
+// --- Locale Detection ---
+const appLocale = '{{APP_LOCALE}}'; // This will be replaced by the environment
+const browserLocale = navigator.languages?.[0] || navigator.language || 'en-US';
+
+// Function to find the best matching locale from our translations
+const findMatchingLocale = (locale) => {
+  if (TRANSLATIONS[locale]) return locale;
+  const lang = locale.split('-')[0];
+  const match = Object.keys(TRANSLATIONS).find(key => key.startsWith(lang + '-'));
+  return match || 'en-US';
+};
+
+const locale = (appLocale !== '{{APP_LOCALE}}') ? findMatchingLocale(appLocale) : findMatchingLocale(browserLocale);
+const t = (key) => TRANSLATIONS[locale]?.[key] || TRANSLATIONS['en-US'][key] || key;
+
+// The main application component
+const NoteTransformer = () => {
+  // State for context, raw notes, output format, and the final output
+  const [context, setContext] = useState({
+    title: '',
+    attendees: '',
+    date: '',
+    duration: ''
+  });
+  const [rawNotes, setRawNotes] = useState('');
+  const [finalUseCase, setFinalUseCase] = useState('');
+  const [output, setOutput] = useState('');
+  const [isTransforming, setIsTransforming] = useState(false);
+
+  // --- Static Data for Options and Fields ---
+  const useCaseOptions = [
+    { value: 'googledoc', label: t('googleDoc'), icon: FileText },
+    { value: 'slack', label: t('slackUpdate'), icon: MessageSquare },
+    { value: 'email', label: t('emailSummary'), icon: Mail }
+  ];
+
+  const contextFields = [
+    { key: 'title', label: t('meetingTitle'), icon: Building, type: 'text' },
+    { key: 'attendees', label: t('attendees'), icon: User, type: 'text' },
+    { key: 'date', label: t('date'), icon: Calendar, type: 'date' }, // Changed type to 'date' for the date picker
+    { key: 'duration', label: t('duration'), icon: Clock, type: 'text' }
+  ];
+
+  // --- Handlers ---
+  const handleContextChange = (field, value) => {
+    setContext(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const getTransformationPrompt = () => {
+    const contextString = Object.entries(context)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(', ');
+
+    return `Please respond in ${locale} language. Transform the following raw meeting notes into a professional ${finalUseCase} format.
+
+Context: ${contextString}
+
+Raw Notes:
+${rawNotes}
+
+Instructions:
+- Expand abbreviations naturally (q → questions, w/ → with, exp → experience, etc.).
+- Maintain the original meaning and content.
+- Structure appropriately for a ${finalUseCase}.
+- Use professional language while preserving key details.
+- Keep the tone appropriate for the intended use case.
+- Format the output as a ${finalUseCase} would appear in a professional setting. Ensure the output is clean and well-formatted.`;
+  };
+
+  // --- API Call to Transform Notes ---
+  const transformNotes = async () => {
+    if (!rawNotes.trim() || !finalUseCase) return;
+    
+    setIsTransforming(true);
+    setOutput('');
+    try {
+        const apiKey = ""; // Canvas will provide the key
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+        const payload = {
+            contents: [{ parts: [{ text: getTransformationPrompt() }] }],
+        };
+
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (text) {
+            setOutput(text);
+        } else {
+            throw new Error("No content received from API.");
+        }
+    } catch (error) {
+        console.error("Error transforming notes:", error);
+        setOutput(`Error: Unable to transform notes. ${error.message}`);
+    } finally {
+        setIsTransforming(false);
+    }
+  };
+
+
+  const copyToClipboard = () => {
+    // Using a temporary textarea to preserve formatting like newlines
+    const textArea = document.createElement('textarea');
+    textArea.value = output;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+        document.execCommand('copy');
+        // Optional: Add a visual confirmation like a toast notification
+    } catch (err) {
+        console.error('Failed to copy text: ', err);
+    }
+    document.body.removeChild(textArea);
+  };
+
+  // --- JSX Rendering ---
+  return (
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-800 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto">
+        <header className="mb-8 text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">{t('appTitle')}</h1>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">{t('appDescription')}</p>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Input Column */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-5">{t('input')}</h2>
+              
+              {/* Context Fields */}
+              <div className="space-y-4 mb-6">
+                <h3 className="text-lg font-medium text-gray-800">{t('context')}</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {contextFields.map(field => {
+                    const Icon = field.icon;
+                    return (
+                      <div key={field.key} className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Icon className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <input
+                          type={field.type}
+                          placeholder={field.label}
+                          value={context[field.key]}
+                          onChange={(e) => handleContextChange(field.key, e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Raw Notes Input */}
+              <div className="space-y-4 mb-6">
+                <h3 className="text-lg font-medium text-gray-800">{t('rawNotes')}</h3>
+                <textarea
+                  value={rawNotes}
+                  onChange={(e) => setRawNotes(e.target.value)}
+                  placeholder={t('rawNotesPlaceholder')}
+                  rows={12}
+                  className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y transition-shadow"
+                />
+              </div>
+
+              {/* Output Format Selector */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-800">{t('outputFormat')}</h3>
+                <div className="flex flex-wrap gap-3">
+                  {useCaseOptions.map(option => {
+                    const Icon = option.icon;
+                    return (
+                      <button
+                        key={option.value}
+                        onClick={() => setFinalUseCase(option.value)}
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 border-2 ${
+                          finalUseCase === option.value
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-transparent hover:border-gray-300'
+                        }`}
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span>{option.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Transform Button */}
+              <button
+                onClick={transformNotes}
+                disabled={!rawNotes.trim() || !finalUseCase || isTransforming}
+                className="w-full mt-8 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold text-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-lg disabled:shadow-none transform hover:-translate-y-0.5"
+              >
+                {isTransforming ? t('transforming') : t('transformNotes')}
+              </button>
+            </div>
+          </div>
+
+          {/* Output Column */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-8">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-semibold text-gray-900">{t('output')}</h2>
+                {output && !isTransforming && (
+                  <button
+                    onClick={copyToClipboard}
+                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                  >
+                    <Copy className="h-4 w-4" />
+                    <span>{t('copy')}</span>
+                  </button>
+                )}
+              </div>
+              
+              <div className="min-h-[450px] p-4 bg-gray-50 rounded-lg border border-gray-200 prose prose-sm max-w-none">
+                {isTransforming ? (
+                    <div className="flex justify-center items-center h-full">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    </div>
+                ) : output ? (
+                  <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
+                    {output}
+                  </div>
+                ) : (
+                  <div className="text-gray-500 text-center flex flex-col justify-center items-center h-full">
+                    <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <p>{t('transformedNotesPlaceholder')}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default NoteTransformer;
