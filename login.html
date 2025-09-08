@@ -3,51 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Aplikasi Catatan</title>
+    <title>Registrasi - Aplikasi Catatan</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-    </style>
+    <style> body { font-family: 'Inter', sans-serif; } </style>
 </head>
 <body class="bg-slate-100 flex items-center justify-center h-screen">
     <div class="w-full max-w-sm p-8 space-y-6 bg-white rounded-xl shadow-lg">
-        <h1 class="text-3xl font-bold text-center text-gray-900">Selamat Datang</h1>
-        <form id="loginForm" class="space-y-6">
+        <h1 class="text-3xl font-bold text-center text-gray-900">Buat Akun Baru</h1>
+        <form id="registerForm" class="space-y-6">
             <div>
-                <label for="username" class="text-sm font-medium text-gray-700">Username</label>
-                <input id="username" name="username" type="text" required class="w-full px-4 py-2 mt-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Username Anda">
+                <label for="email" class="text-sm font-medium text-gray-700">Email</label>
+                <input id="email" name="email" type="email" required class="w-full px-4 py-2 mt-2 border rounded-lg" placeholder="nama@email.com">
             </div>
             <div>
                 <label for="password" class="text-sm font-medium text-gray-700">Password</label>
-                <input id="password" name="password" type="password" required class="w-full px-4 py-2 mt-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Password Anda">
+                <input id="password" name="password" type="password" required minlength="6" class="w-full px-4 py-2 mt-2 border rounded-lg" placeholder="Minimal 6 karakter">
             </div>
             <p id="error-message" class="text-sm text-red-600 text-center"></p>
-            <button type="submit" class="w-full py-3 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                Login
+            <button type="submit" class="w-full py-3 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+                Daftar
             </button>
         </form>
+        <p class="text-sm text-center text-gray-600">
+            Sudah punya akun? <a href="/login.html" class="font-medium text-blue-600 hover:underline">Login di sini</a>
+        </p>
     </div>
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+
     <script>
-        const loginForm = document.getElementById('loginForm');
+        // KUNCI KONFIGURASI ANDA SUDAH SAYA MASUKKAN DI SINI
+        const firebaseConfig = {
+            apiKey: "AIzaSyCXuaMq-Y3rgnjq2NYu4ZMnq0PVu-xg--4",
+            authDomain: "meeting-notes-generator-20cb1.firebaseapp.com",
+            projectId: "meeting-notes-generator-20cb1",
+            storageBucket: "meeting-notes-generator-20cb1.firebasestorage.app",
+            messagingSenderId: "867609135930",
+            appId: "1:867609135930:web:2692a7dc244eccb4fb9e03",
+            measurementId: "G-D2LRRL1GC5"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        const registerForm = document.getElementById('registerForm');
         const errorMessage = document.getElementById('error-message');
 
-        loginForm.addEventListener('submit', (e) => {
+        registerForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const username = e.target.username.value;
+            const email = e.target.email.value;
             const password = e.target.password.value;
 
-            // Peringatan: Ini adalah metode login yang tidak aman!
-            if (username === 'krisandi' && password === '12345') {
-                // Simpan status login di sessionStorage (hilang saat tab ditutup)
-                sessionStorage.setItem('isLoggedIn', 'true');
-                // Arahkan ke aplikasi utama
-                window.location.href = '/index.html'; 
-            } else {
-                errorMessage.textContent = 'Username atau password salah.';
-            }
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    alert('Registrasi berhasil! Silakan login.');
+                    window.location.href = '/login.html';
+                })
+                .catch((error) => {
+                    console.error("Firebase registration error:", error); // Ditambahkan untuk debug
+                    if (error.code === 'auth/email-already-in-use') {
+                        errorMessage.textContent = 'Email ini sudah terdaftar.';
+                    } else {
+                        errorMessage.textContent = 'Terjadi kesalahan. Coba lagi.';
+                    }
+                });
         });
     </script>
 </body>
 </html>
+
