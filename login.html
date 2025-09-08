@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Aplikasi Catatan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-100 flex items-center justify-center h-screen">
+    <div class="w-full max-w-sm p-8 space-y-6 bg-white rounded-xl shadow-lg">
+        <h1 class="text-3xl font-bold text-center text-gray-900">Selamat Datang</h1>
+        <form id="loginForm" class="space-y-6">
+            <div>
+                <label for="username" class="text-sm font-medium text-gray-700">Username</label>
+                <input id="username" name="username" type="text" required class="w-full px-4 py-2 mt-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Username Anda">
+            </div>
+            <div>
+                <label for="password" class="text-sm font-medium text-gray-700">Password</label>
+                <input id="password" name="password" type="password" required class="w-full px-4 py-2 mt-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Password Anda">
+            </div>
+            <p id="error-message" class="text-sm text-red-600 text-center"></p>
+            <button type="submit" class="w-full py-3 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Login
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const errorMessage = document.getElementById('error-message');
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = e.target.username.value;
+            const password = e.target.password.value;
+
+            // Peringatan: Ini adalah metode login yang tidak aman!
+            if (username === 'krisandi' && password === '12345') {
+                // Simpan status login di sessionStorage (hilang saat tab ditutup)
+                sessionStorage.setItem('isLoggedIn', 'true');
+                // Arahkan ke aplikasi utama
+                window.location.href = '/index.html'; 
+            } else {
+                errorMessage.textContent = 'Username atau password salah.';
+            }
+        });
+    </script>
+</body>
+</html>
