@@ -282,7 +282,7 @@
             } else if (state.finalUseCase === 'notion') {
               formatInstructions = "For the 'Notion' format, structure the output with clear headings, bullet points, and action items.";
             }
-            const prompt = `Detect the primary language of the raw notes below (likely Indonesian or English). Your entire response MUST be in the detected language. Transform the following raw meeting notes into a professional '${state.finalUseCase}' format.\n\nContext:\n${contextString}\n\nRaw Notes:\n${elements.rawNotes.value}\n\nInstructions:\n- Expand abbreviations naturally.\n- Maintain the original meaning.\n- Use professional but clear language.\n- ${formatInstructions}\n- Ensure the final output is clean, well-formatted, and ready to be pasted.`;
+            const prompt = `Detect the primary language of the raw notes below (likely Indonesian or English). Your entire response MUST be in the detected language. Transform the following raw meeting notes into a professional '${state.finalUseCase}' format.\n\nContext:\n${contextString}\n\nRaw Notes:\n${elements.rawNotes.value}\n\nInstructions:\n- Expand abbreviations naturally.\n- Maintain the original meaning.\n- Use professional but clear language.\n- ${formatInstructions}\n- Ensure the final output is clean, well-formatted, and ready to be pasted.\n- IMPORTANT: Do not include any introductory sentences or preambles like "Berikut adalah...". Start the response directly with the formatted notes.`;
 
             try {
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${state.apiKey}`;
