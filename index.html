@@ -1,499 +1,300 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Professional Note Transformer</title>
+    <title>Aplikasi Catatan AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        /* Custom scrollbar for better aesthetics */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f5f9;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #94a3b8;
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #64748b;
-        }
-        .toast {
-            animation: fadeInOut 3s ease-in-out forwards;
-        }
+        body { font-family: 'Inter', sans-serif; }
+        .toast { animation: fadeInOut 3s ease-in-out forwards; }
         @keyframes fadeInOut {
             0%, 100% { opacity: 0; transform: translateY(20px); }
             10%, 90% { opacity: 1; transform: translateY(0); }
         }
+        #app-loader { display: flex; }
+        #app-content { display: none; }
     </style>
 </head>
 <body class="bg-slate-100">
 
-    <div id="app" class="min-h-screen text-gray-800 p-4 sm:p-6 lg:p-8">
-        <div class="max-w-7xl mx-auto">
-            <header class="mb-8 text-center">
-                <h1 id="appTitle" class="text-4xl font-bold text-gray-900 mb-2"></h1>
-                <p id="appDescription" class="text-lg text-gray-600 max-w-2xl mx-auto"></p>
-            </header>
+    <!-- Firebase SDK Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <!-- Input Column -->
-                <div class="space-y-6">
-                    <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-                        
-                        <div class="space-y-3 mb-6">
-                            <h3 id="apiKeySectionTitle" class="text-lg font-medium text-gray-800 flex items-center"><i data-lucide="key-round" class="h-5 w-5 mr-2 text-gray-500"></i><span></span></h3>
-                            <input type="password" id="apiKeyInput" class="w-full px-4 py-2 border rounded-lg"/>
-                        </div>
+    <div id="app-loader" class="h-screen flex justify-center items-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
+    </div>
 
-                        <h2 id="inputTitle" class="text-2xl font-semibold text-gray-900 mb-5 border-t pt-5"></h2>
-                        
-                        <div class="space-y-4 mb-6">
-                            <h3 id="contextTitle" class="text-lg font-medium text-gray-800"></h3>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <input type="text" id="meetingTitle" class="w-full px-4 py-2 border rounded-lg" />
-                                <input type="text" id="attendees" class="w-full px-4 py-2 border rounded-lg" />
-                                <input type="date" id="date" class="w-full px-4 py-2 border rounded-lg" />
-                                <input type="text" id="duration" class="w-full px-4 py-2 border rounded-lg" />
-                            </div>
-                        </div>
-
-                        <div class="space-y-4 mb-6">
-                            <h3 id="rawNotesTitle" class="text-lg font-medium text-gray-800"></h3>
-                            <textarea id="rawNotes" rows="10" class="w-full p-4 border rounded-lg resize-y"></textarea>
-                        </div>
-
-                        <div class="space-y-4">
-                            <h3 id="outputFormatTitle" class="text-lg font-medium text-gray-800"></h3>
-                            <div id="useCaseButtons" class="flex flex-wrap gap-3"></div>
-                        </div>
-                        
-                        <div class="flex items-center gap-4 mt-8">
-                            <button id="transformButton" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold text-lg"></button>
-                            <button id="saveButton" class="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold text-lg"></button>
-                            <button id="newNoteButton" class="p-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"><i data-lucide="file-plus-2"></i></button>
-                        </div>
-                        <p id="buttonWarning" class="text-center text-sm text-red-600 mt-3 font-medium h-5"></p>
-                    </div>
-                </div>
-
-                <!-- Output Column -->
-                <div class="space-y-6">
-                    <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 sticky top-8">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 id="outputTitle" class="text-2xl font-semibold text-gray-900"></h2>
-                            <button id="copyButton" class="flex items-center space-x-2 text-blue-600 hidden">
-                                <i data-lucide="copy" class="h-4 w-4"></i>
-                                <span id="copyButtonText"></span>
-                            </button>
-                        </div>
-                        <div id="outputPanel" class="min-h-[450px] p-4 bg-slate-50 rounded-lg border prose prose-sm max-w-none"></div>
-                    </div>
-                </div>
+    <div id="app-content">
+        <header class="bg-white shadow-sm p-4 sticky top-0 z-10">
+            <div class="max-w-7xl mx-auto flex justify-between items-center">
+                <h1 class="text-xl font-bold text-gray-800">Aplikasi Catatan AI</h1>
+                <div id="auth-container"></div>
             </div>
+        </header>
 
-            <!-- Saved Notes Section -->
-            <div id="savedNotesSection" class="mt-12 bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-                <h2 id="savedNotesTitle" class="text-2xl font-semibold text-gray-900 mb-4"></h2>
-                <div id="savedNotesList" class="space-y-3"></div>
-            </div>
+        <main id="main-app" class="text-gray-800 p-4 sm:p-6 lg:p-8 hidden">
+             <!-- Konten aplikasi utama akan dimuat di sini oleh JavaScript -->
+        </main>
+
+        <div id="login-prompt" class="text-center p-20">
+            <h2 class="text-3xl font-bold mb-4">Selamat Datang!</h2>
+            <p class="text-lg text-gray-600 mb-8">Silakan login untuk menyimpan dan mengakses catatan Anda dari mana saja.</p>
+            <button id="login-button" class="bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition-transform transform hover:scale-105 flex items-center gap-3 mx-auto">
+                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                <span>Login dengan Google</span>
+            </button>
         </div>
     </div>
-    
+
     <div id="toast-container" class="fixed bottom-5 right-5 z-50"></div>
 
     <script type="module">
-        // --- Translations ---
-        const TRANSLATIONS = {
-            "en-US": {
-                "appTitle": "Professional Meeting Note Transformer",
-                "appDescription": "Transform raw meeting notes into polished, professional formats using your own AI key.",
-                "apiKeySectionTitle": "Your AI API Key",
-                "apiKeyInputPlaceholder": "Paste your Google AI API Key here",
-                "apiKeyMissingWarning": "Please enter your Google AI API Key.",
-                "inputTitle": "Input",
-                "contextTitle": "Context",
-                "meetingTitlePlaceholder": "Meeting Title",
-                "attendeesPlaceholder": "Attendees",
-                "datePlaceholder": "Date",
-                "durationPlaceholder": "Duration",
-                "rawNotesTitle": "Raw Notes",
-                "rawNotesPlaceholder": "Enter your raw meeting notes here...",
-                "outputFormatTitle": "Output Format",
-                "whatsApp": "WhatsApp",
-                "emailSummary": "Email Summary",
-                "notion": "Notion",
-                "transforming": "Transforming...",
-                "transformNotes": "Transform Notes",
-                "outputTitle": "Output",
-                "copyButtonText": "Copy",
-                "copySuccess": "Text copied successfully!",
-                "copyFailed": "Failed to copy text.",
-                "transformedNotesPlaceholder": "Transformed notes will appear here",
-                "enterRawNotesWarning": "Please enter your raw notes.",
-                "selectOutputFormatWarning": "Please select an output format first.",
-                "transformError": "Failed to transform notes: {errorMessage}",
-                "saveNote": "Save",
-                "updateNote": "Update",
-                "newNote": "New Note",
-                "savedNotesTitle": "Saved Notes",
-                "load": "Load",
-                "delete": "Delete",
-                "noteSaved": "Note saved successfully!",
-                "noteUpdated": "Note updated successfully!",
-                "noteDeleted": "Note deleted successfully."
-            },
-            "id-ID": {
-                "appTitle": "Pengubah Catatan Rapat Profesional",
-                "appDescription": "Ubah catatan rapat mentah menjadi format profesional menggunakan API Key AI Anda sendiri.",
-                "apiKeySectionTitle": "API Key AI Anda",
-                "apiKeyInputPlaceholder": "Masukkan Google AI API Key Anda di sini",
-                "apiKeyMissingWarning": "Harap masukkan Google AI API Key Anda.",
-                "inputTitle": "Input",
-                "contextTitle": "Konteks",
-                "meetingTitlePlaceholder": "Judul Rapat",
-                "attendeesPlaceholder": "Peserta",
-                "datePlaceholder": "Tanggal",
-                "durationPlaceholder": "Durasi",
-                "rawNotesTitle": "Catatan Mentah",
-                "rawNotesPlaceholder": "Masukkan catatan mentah Anda di sini...",
-                "outputFormatTitle": "Format Output",
-                "whatsApp": "WhatsApp",
-                "emailSummary": "Ringkasan Email",
-                "notion": "Notion",
-                "transforming": "Mengubah...",
-                "transformNotes": "Ubah Catatan",
-                "outputTitle": "Output",
-                "copyButtonText": "Salin",
-                "copySuccess": "Teks berhasil disalin!",
-                "copyFailed": "Gagal menyalin teks.",
-                "transformedNotesPlaceholder": "Catatan yang telah diubah akan muncul di sini",
-                "enterRawNotesWarning": "Harap masukkan catatan mentah Anda.",
-                "selectOutputFormatWarning": "Harap pilih format output terlebih dahulu.",
-                "transformError": "Gagal mengubah catatan: {errorMessage}",
-                "saveNote": "Simpan",
-                "updateNote": "Perbarui",
-                "newNote": "Catatan Baru",
-                "savedNotesTitle": "Catatan Tersimpan",
-                "load": "Buka",
-                "delete": "Hapus",
-                "noteSaved": "Catatan berhasil disimpan!",
-                "noteUpdated": "Catatan berhasil diperbarui!",
-                "noteDeleted": "Catatan berhasil dihapus."
-            }
+        // --- 1. Konfigurasi Firebase ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCXuaMq-Y3rgnjq2NYu4ZMnq0PVu-xg--4",
+            authDomain: "meeting-notes-generator-20cb1.firebaseapp.com",
+            projectId: "meeting-notes-generator-20cb1",
+            storageBucket: "meeting-notes-generator-20cb1.firebasestorage.app",
+            messagingSenderId: "867609135930",
+            appId: "1:867609135930:web:2692a7dc244eccb4fb9e03",
+            measurementId: "G-D2LRRL1GC5"
         };
 
-        // --- State and Variables ---
+        // --- Inisialisasi Firebase ---
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const provider = new firebase.auth.GoogleAuthProvider();
+
         let state = {
-            apiKey: '',
-            finalUseCase: '',
+            user: null,
+            notes: [],
+            currentNoteId: null,
             isTransforming: false,
             output: '',
-            savedNotes: [],
-            currentNoteId: null,
-        };
-        const browserLocale = navigator.languages?.[0] || navigator.language || 'en-US';
-        const locale = browserLocale.startsWith('id') ? 'id-ID' : 'en-US';
-        const t = (key) => TRANSLATIONS[locale]?.[key] || TRANSLATIONS['en-US'][key] || key;
-
-        // --- DOM Elements ---
-        const el = (id) => document.getElementById(id);
-        const elements = {
-            apiKeyInput: el('apiKeyInput'),
-            meetingTitle: el('meetingTitle'),
-            attendees: el('attendees'),
-            date: el('date'),
-            duration: el('duration'),
-            rawNotes: el('rawNotes'),
-            useCaseButtons: el('useCaseButtons'),
-            transformButton: el('transformButton'),
-            buttonWarning: el('buttonWarning'),
-            copyButton: el('copyButton'),
-            outputPanel: el('outputPanel'),
-            saveButton: el('saveButton'),
-            newNoteButton: el('newNoteButton'),
-            savedNotesList: el('savedNotesList'),
-            toastContainer: el('toast-container'),
         };
         
-        // --- UI Rendering and Updates ---
-        function render() {
-             // Update Text Content
-            document.title = t('appTitle');
-            el('appTitle').textContent = t('appTitle');
-            el('appDescription').textContent = t('appDescription');
-            el('apiKeySectionTitle').querySelector('span').textContent = t('apiKeySectionTitle');
-            elements.apiKeyInput.placeholder = t('apiKeyInputPlaceholder');
-            el('inputTitle').textContent = t('inputTitle');
-            el('contextTitle').textContent = t('contextTitle');
-            elements.meetingTitle.placeholder = t('meetingTitlePlaceholder');
-            elements.attendees.placeholder = t('attendeesPlaceholder');
-            elements.duration.placeholder = t('durationPlaceholder');
-            el('rawNotesTitle').textContent = t('rawNotesTitle');
-            elements.rawNotes.placeholder = t('rawNotesPlaceholder');
-            el('outputFormatTitle').textContent = t('outputFormatTitle');
-            el('outputTitle').textContent = t('outputTitle');
-            el('copyButtonText').textContent = t('copyButtonText');
+        // --- Referensi Elemen DOM Global ---
+        const loginButton = document.getElementById('login-button');
+        const authContainer = document.getElementById('auth-container');
+        const mainApp = document.getElementById('main-app');
+        const loginPrompt = document.getElementById('login-prompt');
+        const appLoader = document.getElementById('app-loader');
+        const appContent = document.getElementById('app-content');
 
-            // Render Use Case Buttons
-            const useCases = [
-                { value: 'notion', label: t('notion'), icon: 'file-text' },
-                { value: 'whatsapp', label: t('whatsApp'), icon: 'message-square' },
-                { value: 'email', label: t('emailSummary'), icon: 'mail' }
-            ];
-            elements.useCaseButtons.innerHTML = useCases.map(option => `
-                <button data-value="${option.value}" class="use-case-button flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 border-2 ${state.finalUseCase === option.value ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-transparent hover:border-gray-300'}">
-                    <i data-lucide="${option.icon}" class="h-5 w-5"></i>
-                    <span>${option.label}</span>
-                </button>
-            `).join('');
-            
-            document.querySelectorAll('.use-case-button').forEach(button => {
-                button.addEventListener('click', () => {
-                    state.finalUseCase = button.dataset.value;
-                    render();
-                });
-            });
+        // --- Fungsi Autentikasi ---
+        loginButton.addEventListener('click', () => {
+            auth.signInWithPopup(provider).catch(error => console.error("Login Gagal:", error));
+        });
 
-            // Update Transform Button State
-            const isDisabled = !elements.rawNotes.value.trim() || !state.finalUseCase || !state.apiKey.trim() || state.isTransforming;
-            elements.transformButton.disabled = isDisabled;
-            elements.transformButton.textContent = state.isTransforming ? t('transforming') : t('transformNotes');
-            
-            elements.saveButton.disabled = !elements.meetingTitle.value.trim() && !elements.rawNotes.value.trim();
+        function handleLogout() {
+            auth.signOut();
+        }
 
-            // Update Button Warning
-            let warning = '';
-            if (!state.isTransforming) {
-                 if (!state.apiKey.trim()) warning = t('apiKeyMissingWarning');
-                 else if (!elements.rawNotes.value.trim()) warning = t('enterRawNotesWarning');
-                 else if (!state.finalUseCase) warning = t('selectOutputFormatWarning');
-            }
-            elements.buttonWarning.textContent = warning;
-            
-            // Update Output Panel
-            elements.copyButton.classList.toggle('hidden', !state.output || state.isTransforming);
-            if (state.isTransforming) {
-                elements.outputPanel.innerHTML = `<div class="flex justify-center items-center h-full"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>`;
-            } else if (state.output) {
-                elements.outputPanel.innerHTML = `<div class="whitespace-pre-wrap text-gray-800 leading-relaxed">${state.output}</div>`;
-            } else {
-                elements.outputPanel.innerHTML = `
-                    <div class="text-gray-500 text-center flex flex-col justify-center items-center h-full">
-                        <i data-lucide="file-text" class="h-12 w-12 mx-auto mb-4 text-gray-400"></i>
-                        <p>${t('transformedNotesPlaceholder')}</p>
+        // --- Listener Status Login (INTI APLIKASI) ---
+        let unsubscribeNotes = null;
+        auth.onAuthStateChanged(user => {
+            appLoader.style.display = 'none';
+            appContent.style.display = 'block';
+
+            if (user) { // Pengguna Login
+                state.user = { uid: user.uid, displayName: user.displayName, photoURL: user.photoURL };
+                loginPrompt.style.display = 'none';
+                mainApp.style.display = 'block';
+                authContainer.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <span class="font-semibold text-gray-700 hidden sm:block">${user.displayName}</span>
+                        <img src="${user.photoURL}" alt="Foto Profil" class="h-10 w-10 rounded-full">
+                        <button id="logout-button" class="bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors">Logout</button>
                     </div>`;
+                document.getElementById('logout-button').addEventListener('click', handleLogout);
+                loadMainAppContent();
+                listenToNotes();
+            } else { // Pengguna Logout
+                state.user = null;
+                state.notes = [];
+                state.currentNoteId = null;
+                loginPrompt.style.display = 'block';
+                mainApp.style.display = 'none';
+                authContainer.innerHTML = '';
+                if (unsubscribeNotes) unsubscribeNotes();
             }
+        });
+        
+        // --- Fungsi Firestore (Menyimpan & Memuat Data) ---
+        function listenToNotes() {
+            if (!state.user) return;
+            const notesCollection = db.collection('users').doc(state.user.uid).collection('notes');
+            unsubscribeNotes = notesCollection.orderBy('createdAt', 'desc').onSnapshot(snapshot => {
+                state.notes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderSavedNotes();
+            }, error => console.error("Error fetching notes: ", error));
+        }
+        
+        async function handleSaveNote() {
+            if (!state.user) return showToast("Anda harus login untuk menyimpan.");
             
-            // Update Save/Update Button
-            elements.saveButton.textContent = state.currentNoteId ? t('updateNote') : t('saveNote');
+            const noteData = {
+                title: document.getElementById('meetingTitle').value || 'Tanpa Judul',
+                attendees: document.getElementById('attendees').value,
+                date: document.getElementById('date').value,
+                duration: document.getElementById('duration').value,
+                rawNotes: document.getElementById('rawNotes').value,
+                output: state.output,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            };
+            
+            const userNotesCollection = db.collection('users').doc(state.user.uid).collection('notes');
 
-            renderSavedNotes();
+            try {
+                if (state.currentNoteId) {
+                    await userNotesCollection.doc(state.currentNoteId).update(noteData);
+                    showToast("Catatan berhasil diperbarui!");
+                } else {
+                    noteData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    const docRef = await userNotesCollection.add(noteData);
+                    state.currentNoteId = docRef.id;
+                    showToast("Catatan berhasil disimpan!");
+                }
+            } catch (error) {
+                console.error("Error saving note: ", error);
+                showToast("Gagal menyimpan catatan.");
+            }
+        }
+
+        async function handleDeleteNote(noteId) {
+            if (!state.user || !noteId) return;
+            if (confirm('Apakah Anda yakin ingin menghapus catatan ini?')) {
+                try {
+                    await db.collection('users').doc(state.user.uid).collection('notes').doc(noteId).delete();
+                    showToast('Catatan berhasil dihapus.');
+                    if (state.currentNoteId === noteId) {
+                        handleNewNote();
+                    }
+                } catch (error) {
+                    console.error("Error deleting note:", error);
+                    showToast('Gagal menghapus catatan.');
+                }
+            }
+        }
+        
+        // --- Fungsi Utama Aplikasi (Setelah Login) ---
+        function loadMainAppContent() {
+             mainApp.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Kolom Input & Editor -->
+                    <div class="space-y-6">
+                        <div class="bg-white rounded-xl shadow-lg p-6">
+                            <div class="flex justify-between items-center mb-4">
+                               <h2 class="text-2xl font-semibold text-gray-900">Editor Catatan</h2>
+                               <button id="newNoteButton" class="flex items-center gap-2 text-sm font-semibold bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300">
+                                   <i data-lucide="file-plus-2" class="h-4 w-4"></i> Catatan Baru
+                               </button>
+                            </div>
+                            <div class="space-y-4">
+                                <input type="text" id="meetingTitle" placeholder="Judul Rapat" class="w-full text-lg font-semibold px-4 py-2 border rounded-lg" />
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <input type="text" id="attendees" placeholder="Peserta" class="w-full px-4 py-2 border rounded-lg" />
+                                    <input type="date" id="date" class="w-full px-4 py-2 border rounded-lg" />
+                                    <input type="text" id="duration" placeholder="Durasi" class="w-full px-4 py-2 border rounded-lg" />
+                                </div>
+                                <textarea id="rawNotes" rows="10" placeholder="Tulis catatan mentah Anda di sini..." class="w-full p-4 border rounded-lg resize-y"></textarea>
+                                 <button id="saveButton" class="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold text-lg hover:bg-emerald-700">Simpan ke Cloud</button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Kolom Catatan Tersimpan -->
+                    <div class="space-y-6">
+                        <div class="bg-white rounded-xl shadow-lg p-6 sticky top-24">
+                            <h2 class="text-2xl font-semibold text-gray-900 mb-4">Catatan Tersimpan</h2>
+                            <div id="savedNotesList" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2"></div>
+                         </div>
+                    </div>
+                </div>
+             `;
+             
+             // Pasang event listener ke elemen yang baru dibuat
+             document.getElementById('saveButton').addEventListener('click', handleSaveNote);
+             document.getElementById('newNoteButton').addEventListener('click', handleNewNote);
+             document.getElementById('savedNotesList').addEventListener('click', handleListInteraction);
+
+             // Tampilkan daftar catatan yang sudah ada
+             renderSavedNotes();
+             lucide.createIcons();
+        }
+        
+        function renderSavedNotes() {
+            const listEl = document.getElementById('savedNotesList');
+            if (!listEl) return;
+            
+            if (state.notes.length === 0) {
+                listEl.innerHTML = '<p class="text-gray-500 italic text-center py-8">Belum ada catatan yang disimpan.</p>';
+                return;
+            }
+            listEl.innerHTML = state.notes.map(note => `
+                 <div class="note-item flex items-center justify-between p-3 bg-slate-50 rounded-lg border hover:bg-slate-100 transition-colors cursor-pointer" data-id="${note.id}">
+                    <div class="flex-grow">
+                        <p class="font-semibold text-gray-800">${note.title}</p>
+                        <p class="text-sm text-gray-500">${note.updatedAt ? new Date(note.updatedAt.toDate()).toLocaleString() : 'Baru saja'}</p>
+                    </div>
+                    <button class="delete-btn p-2 text-red-500 rounded-full hover:bg-red-100 hover:text-red-700 transition-colors" data-id="${note.id}">
+                       <i data-lucide="trash-2" class="h-5 w-5 pointer-events-none"></i>
+                    </button>
+                 </div>
+            `).join('');
             lucide.createIcons();
         }
 
-        function renderSavedNotes() {
-            el('savedNotesTitle').textContent = t('savedNotesTitle');
-            if (state.savedNotes.length === 0) {
-                elements.savedNotesList.innerHTML = `<p class="text-gray-500 italic">Belum ada catatan yang disimpan.</p>`;
-                return;
+        function handleListInteraction(e) {
+            const noteItem = e.target.closest('.note-item');
+            const deleteBtn = e.target.closest('.delete-btn');
+
+            if (deleteBtn) {
+                handleDeleteNote(deleteBtn.dataset.id);
+            } else if (noteItem) {
+                loadNoteIntoEditor(noteItem.dataset.id);
             }
-            elements.savedNotesList.innerHTML = state.savedNotes.map(note => `
-                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border hover:bg-slate-100 transition-colors">
-                    <div>
-                        <p class="font-semibold">${note.title || 'Tanpa Judul'}</p>
-                        <p class="text-sm text-gray-500">${new Date(note.id).toLocaleString()}</p>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <button data-id="${note.id}" class="load-btn p-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors">Buka</button>
-                        <button data-id="${note.id}" class="delete-btn p-2 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors">Hapus</button>
-                    </div>
-                </div>
-            `).join('');
+        }
+        
+        function loadNoteIntoEditor(noteId) {
+            const note = state.notes.find(n => n.id === noteId);
+            if (!note) return;
+
+            document.getElementById('meetingTitle').value = note.title;
+            document.getElementById('attendees').value = note.attendees;
+            document.getElementById('date').value = note.date;
+            document.getElementById('duration').value = note.duration;
+            document.getElementById('rawNotes').value = note.rawNotes;
+            state.currentNoteId = note.id;
+            
+            document.getElementById('saveButton').textContent = 'Perbarui di Cloud';
+        }
+
+        function handleNewNote() {
+            state.currentNoteId = null;
+            document.getElementById('meetingTitle').value = '';
+            document.getElementById('attendees').value = '';
+            document.getElementById('date').value = '';
+            document.getElementById('duration').value = '';
+            document.getElementById('rawNotes').value = '';
+            document.getElementById('saveButton').textContent = 'Simpan ke Cloud';
+            showToast('Editor dibersihkan, siap untuk catatan baru.');
         }
         
         function showToast(message) {
+            const toastContainer = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = 'toast bg-gray-900 text-white py-2 px-4 rounded-lg shadow-xl';
             toast.textContent = message;
-            elements.toastContainer.appendChild(toast);
+            toastContainer.appendChild(toast);
             setTimeout(() => toast.remove(), 3000);
         }
 
-        function copyToClipboardFallback(text) {
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            textArea.style.top = "0";
-            textArea.style.left = "0";
-            textArea.style.position = "fixed";
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            let success = false;
-            try {
-                success = document.execCommand('copy');
-            } catch (err) {
-                console.error('Fallback: Gagal menyalin', err);
-            }
-            document.body.removeChild(textArea);
-            return success;
-        }
-
-        // --- Event Handlers ---
-        async function handleTransform() {
-             if (elements.transformButton.disabled) return;
-            state.isTransforming = true;
-            state.output = '';
-            render();
-
-            const context = {
-                title: elements.meetingTitle.value,
-                attendees: elements.attendees.value,
-                date: elements.date.value,
-                duration: elements.duration.value
-            };
-            const contextString = Object.entries(context).map(([key, value]) => `${key}: ${value}`).join(', ');
-            let formatInstructions = '';
-            if (state.finalUseCase === 'whatsapp') {
-              formatInstructions = "For the 'WhatsApp' format, use WhatsApp-style markdown (*for bold*, _for italic_). Make it concise.";
-            } else if (state.finalUseCase === 'notion') {
-              formatInstructions = "For the 'Notion' format, structure the output with clear headings, bullet points, and action items.";
-            }
-            const prompt = `Detect the primary language of the raw notes below (likely Indonesian or English). Your entire response MUST be in the detected language. Transform the following raw meeting notes into a professional '${state.finalUseCase}' format.\n\nContext:\n${contextString}\n\nRaw Notes:\n${elements.rawNotes.value}\n\nInstructions:\n- Expand abbreviations naturally.\n- Maintain the original meaning.\n- Use professional but clear language.\n- ${formatInstructions}\n- Ensure the final output is clean, well-formatted, and ready to be pasted.\n- IMPORTANT: Do not include any introductory sentences or preambles like "Berikut adalah...". Start the response directly with the formatted notes.`;
-
-            try {
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${state.apiKey}`;
-                const payload = { contents: [{ parts: [{ text: prompt }] }] };
-
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error?.message || `API request failed: ${response.status}`);
-                }
-                const result = await response.json();
-                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (text) {
-                    state.output = text;
-                } else {
-                    throw new Error("No content received from API. Check your API Key or prompt.");
-                }
-            } catch (error) {
-                console.error("Error transforming notes:", error);
-                state.output = t('transformError').replace('{errorMessage}', error.message);
-            } finally {
-                state.isTransforming = false;
-                render();
-            }
-        }
-
-        function handleSave() {
-            const noteData = {
-                title: elements.meetingTitle.value,
-                attendees: elements.attendees.value,
-                date: elements.date.value,
-                duration: elements.duration.value,
-                rawNotes: elements.rawNotes.value,
-                output: state.output
-            };
-
-            if (state.currentNoteId) { // Update existing note
-                state.savedNotes = state.savedNotes.map(note => 
-                    note.id === state.currentNoteId ? { ...note, ...noteData } : note
-                );
-                showToast(t('noteUpdated'));
-            } else { // Save new note
-                const newNote = { ...noteData, id: Date.now() };
-                state.savedNotes.unshift(newNote);
-                state.currentNoteId = newNote.id;
-                showToast(t('noteSaved'));
-            }
-            
-            localStorage.setItem('savedNotes', JSON.stringify(state.savedNotes));
-            render();
-        }
-        
-        function handleNewNote() {
-            state.currentNoteId = null;
-            state.output = '';
-            elements.meetingTitle.value = '';
-            elements.attendees.value = '';
-            elements.date.value = '';
-            elements.duration.value = '';
-            elements.rawNotes.value = '';
-            render();
-        }
-
-        function handleListInteraction(e) {
-            const targetButton = e.target.closest('button');
-            if (!targetButton) return;
-            
-            const id = parseInt(targetButton.dataset.id);
-            if (!id) return;
-
-            if (targetButton.classList.contains('load-btn')) {
-                const note = state.savedNotes.find(n => n.id === id);
-                if (note) {
-                    elements.meetingTitle.value = note.title;
-                    elements.attendees.value = note.attendees;
-                    elements.date.value = note.date;
-                    elements.duration.value = note.duration;
-                    elements.rawNotes.value = note.rawNotes;
-                    state.output = note.output;
-                    state.currentNoteId = note.id;
-                    render();
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                }
-            } else if (targetButton.classList.contains('delete-btn')) {
-                state.savedNotes = state.savedNotes.filter(n => n.id !== id);
-                localStorage.setItem('savedNotes', JSON.stringify(state.savedNotes));
-                if (state.currentNoteId === id) handleNewNote();
-                showToast(t('noteDeleted'));
-                render();
-            }
-        }
-        
-        // --- Initialization ---
-        function init() {
-            const savedKey = localStorage.getItem('geminiApiKey');
-            if (savedKey) {
-                state.apiKey = savedKey;
-                elements.apiKeyInput.value = savedKey;
-            }
-            const notes = JSON.parse(localStorage.getItem('savedNotes')) || [];
-            state.savedNotes = notes;
-
-            // Add Event Listeners
-            elements.apiKeyInput.addEventListener('input', (e) => {
-                state.apiKey = e.target.value;
-                localStorage.setItem('geminiApiKey', state.apiKey);
-                render();
-            });
-            elements.rawNotes.addEventListener('input', render);
-            elements.meetingTitle.addEventListener('input', render);
-            elements.transformButton.addEventListener('click', handleTransform);
-            elements.copyButton.addEventListener('click', () => {
-                const success = copyToClipboardFallback(state.output);
-                showToast(success ? t('copySuccess') : t('copyFailed'));
-            });
-            elements.saveButton.addEventListener('click', handleSave);
-            elements.newNoteButton.addEventListener('click', handleNewNote);
-            elements.savedNotesList.addEventListener('click', handleListInteraction);
-            
-            render();
-        }
-
-        init();
     </script>
 </body>
 </html>
