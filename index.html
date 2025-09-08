@@ -3,299 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aplikasi Catatan AI</title>
+    <title>Registrasi - Aplikasi Catatan</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .toast { animation: fadeInOut 3s ease-in-out forwards; }
-        @keyframes fadeInOut {
-            0%, 100% { opacity: 0; transform: translateY(20px); }
-            10%, 90% { opacity: 1; transform: translateY(0); }
-        }
-        #app-loader { display: flex; }
-        #app-content { display: none; }
-    </style>
+    <style> body { font-family: 'Inter', sans-serif; } </style>
 </head>
-<body class="bg-slate-100">
+<body class="bg-slate-100 flex items-center justify-center h-screen">
+    <div class="w-full max-w-sm p-8 space-y-6 bg-white rounded-xl shadow-lg">
+        <h1 class="text-3xl font-bold text-center text-gray-900">Buat Akun Baru</h1>
+        <form id="registerForm" class="space-y-6">
+            <div>
+                <label for="email" class="text-sm font-medium text-gray-700">Email</label>
+                <input id="email" name="email" type="email" required class="w-full px-4 py-2 mt-2 border rounded-lg" placeholder="nama@email.com">
+            </div>
+            <div>
+                <label for="password" class="text-sm font-medium text-gray-700">Password</label>
+                <input id="password" name="password" type="password" required minlength="6" class="w-full px-4 py-2 mt-2 border rounded-lg" placeholder="Minimal 6 karakter">
+            </div>
+            <p id="error-message" class="text-sm text-red-600 text-center"></p>
+            <button type="submit" class="w-full py-3 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+                Daftar
+            </button>
+        </form>
+        <p class="text-sm text-center text-gray-600">
+            Sudah punya akun? <a href="/login.html" class="font-medium text-blue-600 hover:underline">Login di sini</a>
+        </p>
+    </div>
 
-    <!-- Firebase SDK Scripts -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
-    <div id="app-loader" class="h-screen flex justify-center items-center">
-        <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
-    </div>
-
-    <div id="app-content">
-        <header class="bg-white shadow-sm p-4 sticky top-0 z-10">
-            <div class="max-w-7xl mx-auto flex justify-between items-center">
-                <h1 class="text-xl font-bold text-gray-800">Aplikasi Catatan AI</h1>
-                <div id="auth-container"></div>
-            </div>
-        </header>
-
-        <main id="main-app" class="text-gray-800 p-4 sm:p-6 lg:p-8 hidden">
-             <!-- Konten aplikasi utama akan dimuat di sini oleh JavaScript -->
-        </main>
-
-        <div id="login-prompt" class="text-center p-20">
-            <h2 class="text-3xl font-bold mb-4">Selamat Datang!</h2>
-            <p class="text-lg text-gray-600 mb-8">Silakan login untuk menyimpan dan mengakses catatan Anda dari mana saja.</p>
-            <button id="login-button" class="bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition-transform transform hover:scale-105 flex items-center gap-3 mx-auto">
-                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-                <span>Login dengan Google</span>
-            </button>
-        </div>
-    </div>
-
-    <div id="toast-container" class="fixed bottom-5 right-5 z-50"></div>
-
-    <script type="module">
-        // --- 1. Konfigurasi Firebase ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyCXuaMq-Y3rgnjq2NYu4ZMnq0PVu-xg--4",
-            authDomain: "meeting-notes-generator-20cb1.firebaseapp.com",
-            projectId: "meeting-notes-generator-20cb1",
-            storageBucket: "meeting-notes-generator-20cb1.firebasestorage.app",
-            messagingSenderId: "867609135930",
-            appId: "1:867609135930:web:2692a7dc244eccb4fb9e03",
-            measurementId: "G-D2LRRL1GC5"
-        };
-
-        // --- Inisialisasi Firebase ---
+    <script>
+        // PASTE firebaseConfig ANDA DI SINI
+        const firebaseConfig = { /* ... firebaseConfig Anda ... */ };
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
-        const db = firebase.firestore();
-        const provider = new firebase.auth.GoogleAuthProvider();
 
-        let state = {
-            user: null,
-            notes: [],
-            currentNoteId: null,
-            isTransforming: false,
-            output: '',
-        };
-        
-        // --- Referensi Elemen DOM Global ---
-        const loginButton = document.getElementById('login-button');
-        const authContainer = document.getElementById('auth-container');
-        const mainApp = document.getElementById('main-app');
-        const loginPrompt = document.getElementById('login-prompt');
-        const appLoader = document.getElementById('app-loader');
-        const appContent = document.getElementById('app-content');
+        const registerForm = document.getElementById('registerForm');
+        const errorMessage = document.getElementById('error-message');
 
-        // --- Fungsi Autentikasi ---
-        loginButton.addEventListener('click', () => {
-            auth.signInWithPopup(provider).catch(error => console.error("Login Gagal:", error));
-        });
+        registerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = e.target.email.value;
+            const password = e.target.password.value;
 
-        function handleLogout() {
-            auth.signOut();
-        }
-
-        // --- Listener Status Login (INTI APLIKASI) ---
-        let unsubscribeNotes = null;
-        auth.onAuthStateChanged(user => {
-            appLoader.style.display = 'none';
-            appContent.style.display = 'block';
-
-            if (user) { // Pengguna Login
-                state.user = { uid: user.uid, displayName: user.displayName, photoURL: user.photoURL };
-                loginPrompt.style.display = 'none';
-                mainApp.style.display = 'block';
-                authContainer.innerHTML = `
-                    <div class="flex items-center gap-4">
-                        <span class="font-semibold text-gray-700 hidden sm:block">${user.displayName}</span>
-                        <img src="${user.photoURL}" alt="Foto Profil" class="h-10 w-10 rounded-full">
-                        <button id="logout-button" class="bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors">Logout</button>
-                    </div>`;
-                document.getElementById('logout-button').addEventListener('click', handleLogout);
-                loadMainAppContent();
-                listenToNotes();
-            } else { // Pengguna Logout
-                state.user = null;
-                state.notes = [];
-                state.currentNoteId = null;
-                loginPrompt.style.display = 'block';
-                mainApp.style.display = 'none';
-                authContainer.innerHTML = '';
-                if (unsubscribeNotes) unsubscribeNotes();
-            }
-        });
-        
-        // --- Fungsi Firestore (Menyimpan & Memuat Data) ---
-        function listenToNotes() {
-            if (!state.user) return;
-            const notesCollection = db.collection('users').doc(state.user.uid).collection('notes');
-            unsubscribeNotes = notesCollection.orderBy('createdAt', 'desc').onSnapshot(snapshot => {
-                state.notes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderSavedNotes();
-            }, error => console.error("Error fetching notes: ", error));
-        }
-        
-        async function handleSaveNote() {
-            if (!state.user) return showToast("Anda harus login untuk menyimpan.");
-            
-            const noteData = {
-                title: document.getElementById('meetingTitle').value || 'Tanpa Judul',
-                attendees: document.getElementById('attendees').value,
-                date: document.getElementById('date').value,
-                duration: document.getElementById('duration').value,
-                rawNotes: document.getElementById('rawNotes').value,
-                output: state.output,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            };
-            
-            const userNotesCollection = db.collection('users').doc(state.user.uid).collection('notes');
-
-            try {
-                if (state.currentNoteId) {
-                    await userNotesCollection.doc(state.currentNoteId).update(noteData);
-                    showToast("Catatan berhasil diperbarui!");
-                } else {
-                    noteData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                    const docRef = await userNotesCollection.add(noteData);
-                    state.currentNoteId = docRef.id;
-                    showToast("Catatan berhasil disimpan!");
-                }
-            } catch (error) {
-                console.error("Error saving note: ", error);
-                showToast("Gagal menyimpan catatan.");
-            }
-        }
-
-        async function handleDeleteNote(noteId) {
-            if (!state.user || !noteId) return;
-            if (confirm('Apakah Anda yakin ingin menghapus catatan ini?')) {
-                try {
-                    await db.collection('users').doc(state.user.uid).collection('notes').doc(noteId).delete();
-                    showToast('Catatan berhasil dihapus.');
-                    if (state.currentNoteId === noteId) {
-                        handleNewNote();
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    alert('Registrasi berhasil! Silakan login.');
+                    window.location.href = '/login.html';
+                })
+                .catch((error) => {
+                    if (error.code === 'auth/email-already-in-use') {
+                        errorMessage.textContent = 'Email ini sudah terdaftar.';
+                    } else {
+                        errorMessage.textContent = 'Terjadi kesalahan. Coba lagi.';
                     }
-                } catch (error) {
-                    console.error("Error deleting note:", error);
-                    showToast('Gagal menghapus catatan.');
-                }
-            }
-        }
-        
-        // --- Fungsi Utama Aplikasi (Setelah Login) ---
-        function loadMainAppContent() {
-             mainApp.innerHTML = `
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <!-- Kolom Input & Editor -->
-                    <div class="space-y-6">
-                        <div class="bg-white rounded-xl shadow-lg p-6">
-                            <div class="flex justify-between items-center mb-4">
-                               <h2 class="text-2xl font-semibold text-gray-900">Editor Catatan</h2>
-                               <button id="newNoteButton" class="flex items-center gap-2 text-sm font-semibold bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300">
-                                   <i data-lucide="file-plus-2" class="h-4 w-4"></i> Catatan Baru
-                               </button>
-                            </div>
-                            <div class="space-y-4">
-                                <input type="text" id="meetingTitle" placeholder="Judul Rapat" class="w-full text-lg font-semibold px-4 py-2 border rounded-lg" />
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <input type="text" id="attendees" placeholder="Peserta" class="w-full px-4 py-2 border rounded-lg" />
-                                    <input type="date" id="date" class="w-full px-4 py-2 border rounded-lg" />
-                                    <input type="text" id="duration" placeholder="Durasi" class="w-full px-4 py-2 border rounded-lg" />
-                                </div>
-                                <textarea id="rawNotes" rows="10" placeholder="Tulis catatan mentah Anda di sini..." class="w-full p-4 border rounded-lg resize-y"></textarea>
-                                 <button id="saveButton" class="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold text-lg hover:bg-emerald-700">Simpan ke Cloud</button>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Kolom Catatan Tersimpan -->
-                    <div class="space-y-6">
-                        <div class="bg-white rounded-xl shadow-lg p-6 sticky top-24">
-                            <h2 class="text-2xl font-semibold text-gray-900 mb-4">Catatan Tersimpan</h2>
-                            <div id="savedNotesList" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2"></div>
-                         </div>
-                    </div>
-                </div>
-             `;
-             
-             // Pasang event listener ke elemen yang baru dibuat
-             document.getElementById('saveButton').addEventListener('click', handleSaveNote);
-             document.getElementById('newNoteButton').addEventListener('click', handleNewNote);
-             document.getElementById('savedNotesList').addEventListener('click', handleListInteraction);
-
-             // Tampilkan daftar catatan yang sudah ada
-             renderSavedNotes();
-             lucide.createIcons();
-        }
-        
-        function renderSavedNotes() {
-            const listEl = document.getElementById('savedNotesList');
-            if (!listEl) return;
-            
-            if (state.notes.length === 0) {
-                listEl.innerHTML = '<p class="text-gray-500 italic text-center py-8">Belum ada catatan yang disimpan.</p>';
-                return;
-            }
-            listEl.innerHTML = state.notes.map(note => `
-                 <div class="note-item flex items-center justify-between p-3 bg-slate-50 rounded-lg border hover:bg-slate-100 transition-colors cursor-pointer" data-id="${note.id}">
-                    <div class="flex-grow">
-                        <p class="font-semibold text-gray-800">${note.title}</p>
-                        <p class="text-sm text-gray-500">${note.updatedAt ? new Date(note.updatedAt.toDate()).toLocaleString() : 'Baru saja'}</p>
-                    </div>
-                    <button class="delete-btn p-2 text-red-500 rounded-full hover:bg-red-100 hover:text-red-700 transition-colors" data-id="${note.id}">
-                       <i data-lucide="trash-2" class="h-5 w-5 pointer-events-none"></i>
-                    </button>
-                 </div>
-            `).join('');
-            lucide.createIcons();
-        }
-
-        function handleListInteraction(e) {
-            const noteItem = e.target.closest('.note-item');
-            const deleteBtn = e.target.closest('.delete-btn');
-
-            if (deleteBtn) {
-                handleDeleteNote(deleteBtn.dataset.id);
-            } else if (noteItem) {
-                loadNoteIntoEditor(noteItem.dataset.id);
-            }
-        }
-        
-        function loadNoteIntoEditor(noteId) {
-            const note = state.notes.find(n => n.id === noteId);
-            if (!note) return;
-
-            document.getElementById('meetingTitle').value = note.title;
-            document.getElementById('attendees').value = note.attendees;
-            document.getElementById('date').value = note.date;
-            document.getElementById('duration').value = note.duration;
-            document.getElementById('rawNotes').value = note.rawNotes;
-            state.currentNoteId = note.id;
-            
-            document.getElementById('saveButton').textContent = 'Perbarui di Cloud';
-        }
-
-        function handleNewNote() {
-            state.currentNoteId = null;
-            document.getElementById('meetingTitle').value = '';
-            document.getElementById('attendees').value = '';
-            document.getElementById('date').value = '';
-            document.getElementById('duration').value = '';
-            document.getElementById('rawNotes').value = '';
-            document.getElementById('saveButton').textContent = 'Simpan ke Cloud';
-            showToast('Editor dibersihkan, siap untuk catatan baru.');
-        }
-        
-        function showToast(message) {
-            const toastContainer = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = 'toast bg-gray-900 text-white py-2 px-4 rounded-lg shadow-xl';
-            toast.textContent = message;
-            toastContainer.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        }
-
+                });
+        });
     </script>
 </body>
 </html>
-
