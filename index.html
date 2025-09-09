@@ -3,64 +3,359 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrasi - Aplikasi Catatan</title>
+    <title>Aplikasi Catatan AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style> body { font-family: 'Inter', sans-serif; } </style>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .toast { animation: fadeInOut 3s ease-in-out forwards; }
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; transform: translateY(20px); }
+            10%, 90% { opacity: 1; transform: translateY(0); }
+        }
+        [disabled] { cursor: not-allowed; opacity: 0.6; }
+        .format-btn[data-active="true"] {
+            background-color: #2563eb; /* bg-blue-600 */
+            color: white;
+        }
+    </style>
 </head>
-<body class="bg-slate-100 flex items-center justify-center h-screen">
-    <div class="w-full max-w-sm p-8 space-y-6 bg-white rounded-xl shadow-lg">
-        <h1 class="text-3xl font-bold text-center text-gray-900">Buat Akun Baru</h1>
-        <form id="registerForm" class="space-y-6">
-            <div>
-                <label for="email" class="text-sm font-medium text-gray-700">Email</label>
-                <input id="email" name="email" type="email" required class="w-full px-4 py-2 mt-2 border rounded-lg" placeholder="nama@email.com">
-            </div>
-            <div>
-                <label for="password" class="text-sm font-medium text-gray-700">Password</label>
-                <input id="password" name="password" type="password" required minlength="6" class="w-full px-4 py-2 mt-2 border rounded-lg" placeholder="Minimal 6 karakter">
-            </div>
-            <p id="error-message" class="text-sm text-red-600 text-center"></p>
-            <button type="submit" class="w-full py-3 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">
-                Daftar
-            </button>
-        </form>
-        <p class="text-sm text-center text-gray-600">
-            Sudah punya akun? <a href="/login.html" class="font-medium text-blue-600 hover:underline">Login di sini</a>
-        </p>
-    </div>
+<body class="bg-slate-100">
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <header class="bg-white shadow-sm p-4 sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto">
+            <h1 class="text-2xl font-bold text-gray-800 text-center">Aplikasi Catatan AI</h1>
+        </div>
+    </header>
 
+    <main class="text-gray-800 p-4 sm:p-6 lg:p-8">
+         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Editor Catatan -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex justify-between items-center mb-4">
+                       <h2 class="text-2xl font-semibold text-gray-900">Editor Catatan</h2>
+                       <button id="newNoteButton" class="flex items-center gap-2 text-sm font-semibold bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300">
+                           <i data-lucide="file-plus-2" class="h-4 w-4"></i> Catatan Baru
+                       </button>
+                    </div>
+                    <div class="space-y-4">
+                        <input type="text" id="meetingTitle" placeholder="Judul Catatan" class="w-full text-lg font-semibold px-4 py-2 border rounded-lg" />
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <input type="date" id="date" class="w-full px-4 py-2 border rounded-lg" title="Tanggal"/>
+                            <input type="text" id="duration" placeholder="Durasi (misal: 60 menit)" class="w-full px-4 py-2 border rounded-lg" />
+                            <input type="text" id="attendees" placeholder="Personil / Peserta" class="w-full px-4 py-2 border rounded-lg" />
+                        </div>
+                        <textarea id="rawNotes" rows="12" placeholder="Tulis catatan Anda di sini..." class="w-full p-4 border rounded-lg resize-y"></textarea>
+                        
+                        <!-- Pilihan Format AI -->
+                        <div class="space-y-2">
+                             <h3 class="text-md font-medium text-gray-700">Pilih Format Output AI:</h3>
+                             <div id="format-buttons" class="flex gap-2">
+                                <button data-format="Notion" class="format-btn flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg font-semibold hover:bg-gray-200 transition-colors">Notion</button>
+                                <button data-format="WhatsApp" class="format-btn flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg font-semibold hover:bg-gray-200 transition-colors">WhatsApp</button>
+                             </div>
+                        </div>
+                        
+                        <button id="transformButton" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold text-lg hover:bg-blue-700 flex items-center justify-center gap-2">
+                            <i data-lucide="sparkles" class="h-5 w-5"></i> Ubah dengan AI
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Hasil Transformasi AI -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-semibold text-gray-900">Hasil Transformasi AI</h2>
+                        <button id="copyButton" class="flex items-center gap-2 text-sm font-semibold bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300" disabled>
+                            <i data-lucide="copy" class="h-4 w-4"></i> Salin
+                        </button>
+                    </div>
+                    <div id="output-container" class="min-h-[200px] p-4 bg-slate-50 rounded-lg border">
+                        <textarea id="aiOutput" rows="10" readonly class="w-full p-2 bg-transparent resize-none border-none focus:ring-0" placeholder="Hasil dari AI akan muncul di sini..."></textarea>
+                    </div>
+                     <button id="saveButton" class="w-full mt-4 bg-emerald-600 text-white py-3 rounded-lg font-semibold text-lg hover:bg-emerald-700">Simpan Catatan</button>
+                </div>
+
+            </div>
+            <div class="space-y-6">
+                 <!-- API Key -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-2xl font-semibold text-gray-900 mb-4">Pengaturan</h2>
+                    <label for="apiKey" class="text-sm font-medium text-gray-700">Google AI API Key</label>
+                    <input type="password" id="apiKey" placeholder="Masukkan API Key Anda di sini" class="w-full mt-2 px-4 py-2 border rounded-lg" />
+                </div>
+                <!-- Catatan Tersimpan -->
+                <div class="bg-white rounded-xl shadow-lg p-6 sticky top-24">
+                    <h2 class="text-2xl font-semibold text-gray-900 mb-4">Catatan Tersimpan</h2>
+                    <div id="savedNotesList" class="space-y-3 max-h-[70vh] overflow-y-auto pr-2"></div>
+                 </div>
+            </div>
+        </div>
+    </main>
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50"></div>
+    
     <script>
-        // PASTE firebaseConfig ANDA DI SINI
-        const firebaseConfig = { /* ... firebaseConfig Anda ... */ };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
+        document.addEventListener('DOMContentLoaded', () => {
+            const state = {
+                savedNotes: [],
+                currentNoteId: null,
+                apiKey: '',
+                outputFormat: 'Notion',
+                isTransforming: false,
+                aiOutput: '',
+            };
 
-        const registerForm = document.getElementById('registerForm');
-        const errorMessage = document.getElementById('error-message');
+            // Referensi Elemen DOM
+            const meetingTitleEl = document.getElementById('meetingTitle');
+            const dateEl = document.getElementById('date');
+            const durationEl = document.getElementById('duration');
+            const attendeesEl = document.getElementById('attendees');
+            const rawNotesEl = document.getElementById('rawNotes');
+            const saveButton = document.getElementById('saveButton');
+            const newNoteButton = document.getElementById('newNoteButton');
+            const savedNotesList = document.getElementById('savedNotesList');
+            const apiKeyEl = document.getElementById('apiKey');
+            const formatButtonsContainer = document.getElementById('format-buttons');
+            const transformButton = document.getElementById('transformButton');
+            const aiOutputEl = document.getElementById('aiOutput');
+            const copyButton = document.getElementById('copyButton');
+            const outputContainer = document.getElementById('output-container');
 
-        registerForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = e.target.email.value;
-            const password = e.target.password.value;
+            // --- Fungsi Inti ---
+            function showToast(message, isError = false) {
+                const toastContainer = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = `toast text-white py-2 px-4 rounded-lg shadow-xl ${isError ? 'bg-red-600' : 'bg-gray-900'}`;
+                toast.textContent = message;
+                toastContainer.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            }
+            
+            function renderSavedNotes() {
+                if (!savedNotesList) return;
+                if (state.savedNotes.length === 0) {
+                    savedNotesList.innerHTML = '<p class="text-gray-500 italic text-center py-8">Belum ada catatan.</p>';
+                    return;
+                }
+                savedNotesList.innerHTML = state.savedNotes.map(note => `
+                     <div class="note-item flex items-center justify-between p-3 bg-slate-50 rounded-lg border hover:bg-slate-100 transition-colors cursor-pointer" data-id="${note.id}">
+                        <div class="flex-grow overflow-hidden">
+                            <p class="font-semibold text-gray-800 truncate">${note.title || 'Tanpa Judul'}</p>
+                            <p class="text-sm text-gray-500">${new Date(note.updatedAt).toLocaleString()}</p>
+                        </div>
+                        <button class="delete-btn flex-shrink-0 ml-2 p-2 text-red-500 rounded-full hover:bg-red-100 hover:text-red-700 transition-colors" data-id="${note.id}">
+                           <i data-lucide="trash-2" class="h-5 w-5 pointer-events-none"></i>
+                        </button>
+                     </div>
+                `).join('');
+                lucide.createIcons();
+            }
+            
+            function handleSaveNote() {
+                const title = meetingTitleEl.value;
+                const date = dateEl.value;
+                const duration = durationEl.value;
+                const attendees = attendeesEl.value;
+                const rawNotes = rawNotesEl.value;
 
-            auth.createUserWithEmailAndPassword(email, password)
-                .then((userCredential) => {
-                    alert('Registrasi berhasil! Silakan login.');
-                    window.location.href = '/login.html';
-                })
-                .catch((error) => {
-                    if (error.code === 'auth/email-already-in-use') {
-                        errorMessage.textContent = 'Email ini sudah terdaftar.';
-                    } else {
-                        errorMessage.textContent = 'Terjadi kesalahan. Coba lagi.';
+                if (!title && !rawNotes) {
+                    showToast('Judul atau isi catatan tidak boleh kosong.', true);
+                    return;
+                }
+                if (state.currentNoteId) {
+                    const noteIndex = state.savedNotes.findIndex(n => n.id === state.currentNoteId);
+                    if (noteIndex > -1) {
+                        state.savedNotes[noteIndex] = { ...state.savedNotes[noteIndex], title, date, duration, attendees, rawNotes, aiOutput: state.aiOutput, updatedAt: new Date().toISOString() };
+                        showToast('Catatan berhasil diperbarui.');
+                    }
+                } else {
+                    const newNote = { id: Date.now(), title, date, duration, attendees, rawNotes, aiOutput: state.aiOutput, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+                    state.savedNotes.push(newNote);
+                    state.currentNoteId = newNote.id;
+                    showToast('Catatan berhasil disimpan.');
+                }
+                saveToLocalStorage();
+                renderSavedNotes();
+            }
+
+            function handleNewNote() {
+                state.currentNoteId = null;
+                state.aiOutput = '';
+                meetingTitleEl.value = '';
+                dateEl.value = '';
+                durationEl.value = '';
+                attendeesEl.value = '';
+                rawNotesEl.value = '';
+                aiOutputEl.value = '';
+                copyButton.disabled = true;
+                saveButton.textContent = 'Simpan Catatan';
+                meetingTitleEl.focus();
+            }
+            
+            function loadNoteIntoEditor(noteId) {
+                const note = state.savedNotes.find(n => n.id === noteId);
+                if (!note) return;
+                meetingTitleEl.value = note.title;
+                dateEl.value = note.date || '';
+                durationEl.value = note.duration || '';
+                attendeesEl.value = note.attendees || '';
+                rawNotesEl.value = note.rawNotes;
+                aiOutputEl.value = note.aiOutput || '';
+                state.currentNoteId = note.id;
+                state.aiOutput = note.aiOutput || '';
+                copyButton.disabled = !state.aiOutput;
+                saveButton.textContent = 'Perbarui Catatan';
+            }
+
+            function handleDeleteNote(noteId) {
+                state.savedNotes = state.savedNotes.filter(n => n.id !== noteId);
+                saveToLocalStorage();
+                renderSavedNotes();
+                showToast('Catatan berhasil dihapus.');
+                if (state.currentNoteId === noteId) {
+                    handleNewNote();
+                }
+            }
+
+            function handleListInteraction(e) {
+                const noteItem = e.target.closest('.note-item');
+                const deleteBtn = e.target.closest('.delete-btn');
+                if (deleteBtn) {
+                    handleDeleteNote(Number(deleteBtn.dataset.id));
+                } else if (noteItem) {
+                    loadNoteIntoEditor(Number(noteItem.dataset.id));
+                }
+            }
+            
+            function saveToLocalStorage() {
+                state.savedNotes.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+                localStorage.setItem('savedNotesAI', JSON.stringify(state.savedNotes));
+                localStorage.setItem('apiKeyAI', state.apiKey);
+            }
+
+            function loadFromLocalStorage() {
+                const notes = localStorage.getItem('savedNotesAI');
+                if (notes) state.savedNotes = JSON.parse(notes);
+                const key = localStorage.getItem('apiKeyAI');
+                if (key) {
+                    state.apiKey = key;
+                    apiKeyEl.value = key;
+                }
+            }
+
+            async function handleTransform() {
+                if (!state.apiKey) {
+                    showToast('Harap masukkan API Key Anda terlebih dahulu.', true);
+                    apiKeyEl.focus();
+                    return;
+                }
+                if (!rawNotesEl.value.trim()) {
+                    showToast('Catatan mentah tidak boleh kosong.', true);
+                    rawNotesEl.focus();
+                    return;
+                }
+
+                state.isTransforming = true;
+                transformButton.disabled = true;
+                transformButton.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> Mengubah...`;
+                outputContainer.classList.add('animate-pulse');
+
+                const context = `
+                    Konteks Catatan:
+                    - Judul: ${meetingTitleEl.value || 'Tidak ada'}
+                    - Tanggal: ${dateEl.value || 'Tidak ada'}
+                    - Durasi: ${durationEl.value || 'Tidak ada'}
+                    - Peserta: ${attendeesEl.value || 'Tidak ada'}
+                `;
+
+                const prompt = `
+                    Anda adalah asisten yang ahli dalam mengubah catatan mentah menjadi format profesional.
+                    Tugas Anda adalah mengubah "Catatan Mentah" berikut menjadi format "${state.outputFormat}", dengan mempertimbangkan konteks yang diberikan.
+                    
+                    ${context}
+
+                    PENTING: JANGAN tambahkan kalimat pembuka atau penutup apa pun. Langsung berikan hasilnya dalam format yang diminta.
+                    
+                    Untuk format WhatsApp, gunakan format markupnya (contoh: *teks tebal*, _teks miring_).
+                    Untuk format Notion, gunakan struktur yang rapi dengan header dan poin-poin.
+                    Bahasa output harus sama dengan bahasa input dari catatan mentah.
+
+                    --- Catatan Mentah ---
+                    ${rawNotesEl.value}
+                    --- Akhir Catatan Mentah ---
+                `;
+                
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${state.apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`API Error: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    const resultText = data.candidates[0].content.parts[0].text;
+                    state.aiOutput = resultText.trim();
+                    aiOutputEl.value = state.aiOutput;
+                    copyButton.disabled = false;
+                    showToast('Catatan berhasil diubah!');
+
+                } catch(error) {
+                    console.error("AI Transform Error:", error);
+                    showToast('Gagal mengubah catatan. Periksa API Key atau coba lagi.', true);
+                } finally {
+                    state.isTransforming = false;
+                    transformButton.disabled = false;
+                    transformButton.innerHTML = `<i data-lucide="sparkles" class="h-5 w-5"></i> Ubah dengan AI`;
+                    outputContainer.classList.remove('animate-pulse');
+                    lucide.createIcons();
+                }
+            }
+
+            function handleCopy() {
+                if (!state.aiOutput) return;
+                navigator.clipboard.writeText(state.aiOutput)
+                    .then(() => showToast('Hasil berhasil disalin!'))
+                    .catch(() => showToast('Gagal menyalin.', true));
+            }
+
+            function setActiveFormatButton() {
+                document.querySelectorAll('.format-btn').forEach(btn => {
+                    btn.dataset.active = btn.dataset.format === state.outputFormat;
+                });
+            }
+
+            function init() {
+                loadFromLocalStorage();
+                renderSavedNotes();
+                setActiveFormatButton();
+                lucide.createIcons();
+
+                saveButton.addEventListener('click', handleSaveNote);
+                newNoteButton.addEventListener('click', handleNewNote);
+                savedNotesList.addEventListener('click', handleListInteraction);
+                apiKeyEl.addEventListener('change', (e) => {
+                    state.apiKey = e.target.value;
+                    saveToLocalStorage();
+                });
+                transformButton.addEventListener('click', handleTransform);
+                copyButton.addEventListener('click', handleCopy);
+                formatButtonsContainer.addEventListener('click', (e) => {
+                    if (e.target.matches('.format-btn')) {
+                        state.outputFormat = e.target.dataset.format;
+                        setActiveFormatButton();
                     }
                 });
+            }
+
+            init();
         });
     </script>
 </body>
 </html>
+
