@@ -7,6 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Library untuk membaca file .docx dan .pdf -->
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.4.16/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+
     <style>
         body { font-family: 'Inter', sans-serif; }
         .toast { animation: fadeInOut 3s ease-in-out forwards; }
@@ -18,6 +23,15 @@
         .format-btn[data-active="true"] {
             background-color: #2563eb; /* bg-blue-600 */
             color: white;
+        }
+        .loader-overlay {
+            position: absolute;
+            inset: 0;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
         }
     </style>
 </head>
@@ -33,12 +47,34 @@
          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
             <div class="lg:col-span-2 space-y-6">
                 <!-- Editor Catatan -->
-                <div class="bg-white rounded-xl shadow-lg p-6">
-                    <div class="flex justify-between items-center mb-4">
+                <div class="bg-white rounded-xl shadow-lg p-6 relative">
+                     <div id="doc-loader" class="loader-overlay hidden rounded-xl">
+                        <div class="text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto"></div>
+                            <p class="mt-4 font-semibold text-gray-700">Membaca dokumen...</p>
+                        </div>
+                    </div>
+                     <div id="ocr-loader" class="loader-overlay hidden rounded-xl">
+                        <div class="text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto"></div>
+                            <p class="mt-4 font-semibold text-gray-700">Mengekstrak teks dari gambar...</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
                        <h2 class="text-2xl font-semibold text-gray-900">Editor Catatan</h2>
-                       <button id="newNoteButton" class="flex items-center gap-2 text-sm font-semibold bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300">
-                           <i data-lucide="file-plus-2" class="h-4 w-4"></i> Catatan Baru
-                       </button>
+                       <div class="flex items-center gap-2">
+                           <button id="uploadDocButton" title="Upload Dokumen (.txt, .md, .pdf, .docx)" class="flex items-center gap-2 text-sm font-semibold bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300">
+                               <i data-lucide="file-up" class="h-4 w-4"></i>
+                           </button>
+                           <button id="captureImageButton" title="Ambil Gambar" class="flex items-center gap-2 text-sm font-semibold bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300">
+                               <i data-lucide="camera" class="h-4 w-4"></i>
+                           </button>
+                           <button id="newNoteButton" class="flex items-center gap-2 text-sm font-semibold bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300">
+                               <i data-lucide="file-plus-2" class="h-4 w-4"></i> Catatan Baru
+                           </button>
+                           <input type="file" id="docUploadInput" class="hidden" accept=".txt,.md,.docx,.pdf">
+                           <input type="file" id="imageCaptureInput" class="hidden" accept="image/*" capture>
+                       </div>
                     </div>
                     <div class="space-y-4">
                         <input type="text" id="meetingTitle" placeholder="Judul Catatan" class="w-full text-lg font-semibold px-4 py-2 border rounded-lg" />
@@ -97,6 +133,9 @@
     <div id="toast-container" class="fixed bottom-5 right-5 z-50"></div>
     
     <script>
+        // Konfigurasi untuk library PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js`;
+
         document.addEventListener('DOMContentLoaded', () => {
             const state = {
                 savedNotes: [],
@@ -122,6 +161,14 @@
             const aiOutputEl = document.getElementById('aiOutput');
             const copyButton = document.getElementById('copyButton');
             const outputContainer = document.getElementById('output-container');
+            
+            const uploadDocButton = document.getElementById('uploadDocButton');
+            const captureImageButton = document.getElementById('captureImageButton');
+            const docUploadInput = document.getElementById('docUploadInput');
+            const imageCaptureInput = document.getElementById('imageCaptureInput');
+            const ocrLoader = document.getElementById('ocr-loader');
+            const docLoader = document.getElementById('doc-loader');
+
 
             // --- Fungsi Inti ---
             function showToast(message, isError = false) {
@@ -245,6 +292,140 @@
                 }
             }
 
+            // --- Fungsi Upload & Ambil Gambar BARU ---
+            function handleDocUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const extension = file.name.split('.').pop().toLowerCase();
+                const reader = new FileReader();
+
+                docLoader.classList.remove('hidden');
+
+                const onReaderError = () => {
+                    showToast('Gagal membaca file.', true);
+                    docLoader.classList.add('hidden');
+                };
+
+                if (extension === 'txt' || extension === 'md') {
+                    reader.onload = (e) => {
+                        rawNotesEl.value = e.target.result;
+                        showToast('Dokumen berhasil dimuat.');
+                        docLoader.classList.add('hidden');
+                    };
+                    reader.onerror = onReaderError;
+                    reader.readAsText(file);
+                } else if (extension === 'docx') {
+                    reader.onload = (e) => {
+                        mammoth.extractRawText({ arrayBuffer: e.target.result })
+                            .then(result => {
+                                rawNotesEl.value = result.value;
+                                showToast('Dokumen .docx berhasil dimuat.');
+                            })
+                            .catch(err => {
+                                console.error("Error parsing docx:", err);
+                                showToast('Gagal memproses file .docx.', true);
+                            })
+                            .finally(() => {
+                                docLoader.classList.add('hidden');
+                            });
+                    };
+                    reader.onerror = onReaderError;
+                    reader.readAsArrayBuffer(file);
+                } else if (extension === 'pdf') {
+                    reader.onload = async (e) => {
+                        try {
+                            const pdf = await pdfjsLib.getDocument({ data: e.target.result }).promise;
+                            let fullText = '';
+                            for (let i = 1; i <= pdf.numPages; i++) {
+                                const page = await pdf.getPage(i);
+                                const textContent = await page.getTextContent();
+                                fullText += textContent.items.map(item => item.str).join(' ') + '\n\n';
+                            }
+                            rawNotesEl.value = fullText.trim();
+                            showToast('Dokumen .pdf berhasil dimuat.');
+                        } catch (err) {
+                            console.error("Error parsing pdf:", err);
+                            showToast('Gagal memproses file .pdf.', true);
+                        } finally {
+                            docLoader.classList.add('hidden');
+                        }
+                    };
+                    reader.onerror = onReaderError;
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    showToast(`Format file .${extension} tidak didukung.`, true);
+                    docLoader.classList.add('hidden');
+                }
+                
+                event.target.value = ''; // Reset input agar bisa upload file yang sama lagi
+            }
+
+            function handleImageCapture(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                if (!state.apiKey) {
+                    showToast('Harap masukkan API Key Anda untuk menggunakan fitur ini.', true);
+                    apiKeyEl.focus();
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    extractTextFromImage(e.target.result, file.type);
+                };
+                reader.onerror = () => {
+                    showToast('Gagal memuat gambar.', true);
+                };
+                reader.readAsDataURL(file);
+                event.target.value = '';
+            }
+
+            async function extractTextFromImage(imageDataUrl, mimeType) {
+                const base64Data = imageDataUrl.split(',')[1];
+                ocrLoader.classList.remove('hidden');
+
+                const payload = {
+                    contents: [{
+                        parts: [
+                            { text: "Extract text from this image. Respond only with the extracted text." },
+                            { inlineData: { mimeType, data: base64Data } }
+                        ]
+                    }]
+                };
+
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${state.apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                    
+                    const data = await response.json();
+                    if (data.candidates && data.candidates.length > 0) {
+                        const extractedText = data.candidates[0].content.parts[0].text;
+                        if (extractedText && extractedText.trim()) {
+                            rawNotesEl.value += (rawNotesEl.value ? '\n\n--- Teks dari Gambar ---\n' : '') + extractedText.trim();
+                            showToast('Teks dari gambar berhasil ditambahkan.');
+                        } else {
+                            showToast('Tidak ada teks yang terdeteksi di gambar.');
+                        }
+                    } else {
+                         showToast('Tidak ada teks yang terdeteksi di gambar.');
+                    }
+
+                } catch (error) {
+                    console.error("OCR Error:", error);
+                    showToast('Gagal mengekstrak teks. Periksa API Key Anda.', true);
+                } finally {
+                    ocrLoader.classList.add('hidden');
+                }
+            }
+
+
             async function handleTransform() {
                 if (!state.apiKey) {
                     showToast('Harap masukkan API Key Anda terlebih dahulu.', true);
@@ -336,6 +517,7 @@
                 setActiveFormatButton();
                 lucide.createIcons();
 
+                // Event Listeners
                 saveButton.addEventListener('click', handleSaveNote);
                 newNoteButton.addEventListener('click', handleNewNote);
                 savedNotesList.addEventListener('click', handleListInteraction);
@@ -351,6 +533,10 @@
                         setActiveFormatButton();
                     }
                 });
+                uploadDocButton.addEventListener('click', () => docUploadInput.click());
+                captureImageButton.addEventListener('click', () => imageCaptureInput.click());
+                docUploadInput.addEventListener('change', handleDocUpload);
+                imageCaptureInput.addEventListener('change', handleImageCapture);
             }
 
             init();
